@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from './types'
 import { db } from './database/knex'
+import { User } from './models/User'
 
 const app = express()
 
@@ -34,17 +35,31 @@ app.get("/users", async (req: Request, res: Response) => {
     try {
         const q = req.query.q
 
-        let usersDB
+        let usersDB //underfined
 
         if (q) {
             const result: TUserDB[] = await db("users").where("name", "LIKE", `%${q}%`)
             usersDB = result
         } else {
             const result: TUserDB[] = await db("users")
-            usersDB = result
+            usersDB = result //dado cru
         }
 
-        res.status(200).send(usersDB)
+        // usersDB[0].name = "Patricia" // não queremos que isso aconteceça
+
+        //vamos pegar as informações vindas do usersBD e INSTANCIA-LA em um objeto da classe User
+                    
+        const users: User[] = usersDB.map((userDB)=> new User(
+            userDB.id,
+            userDB.name,
+            userDB.email,
+            userDB.password,
+            userDB.created_at
+        ))
+
+        //users[0].name = "patricia" // não permite pq name é privado na classe User
+
+        res.status(200).send(users) //dado instanciado
     } catch (error) {
         console.log(error)
 
@@ -62,7 +77,7 @@ app.get("/users", async (req: Request, res: Response) => {
 
 app.post("/users", async (req: Request, res: Response) => {
     try {
-        const { id, name, email, password } = req.body
+        const { id, name, email, password } = req.body //dado cru
 
         if (typeof id !== "string") {
             res.status(400)
@@ -91,17 +106,37 @@ app.post("/users", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newUser: TUserDBPost = {
+        //Objeto simples usando dados crus vindos do boby
+        // const newUser: TUserDBPost = {
+        //     id,
+        //     name,
+        //     email,
+        //     password
+        // }
+
+        //1 - INSTANCIAR os dodos vindos do body
+        const newUser = new User(
             id,
             name,
             email,
-            password
+            password,
+            new Date().toISOString()
+        )
+
+        //2 - Objeto simples para MODELAR as informações para o banco de dados
+        const newUserDB = {
+            id: newUser.getId(),
+            name: newUser.getName(),
+            email: newUser.getEmail(),
+            password: newUser.getPassword(),
+            created_at: newUser.getCreatedAt() 
         }
 
-        await db("users").insert(newUser)
-        const [ userDB ]: TUserDB[] = await db("users").where({ id })
+        await db("users").insert(newUserDB)
+                                                                // id vindo body
+        // const [ userDB ]: TUserDB[] = await db("users").where({ id })
 
-        res.status(201).send(userDB)
+        res.status(201).send(newUser) 
     } catch (error) {
         console.log(error)
 
@@ -246,3 +281,9 @@ app.put("/accounts/:id/balance", async (req: Request, res: Response) => {
         }
     }
 })
+
+//INSTANCIAR!!
+const user3 = new User("004", "Mariana","mariana@email.com", "1234","2023-01-30 10:00:00" )
+
+// console.log(user3.id)
+console.log("id do user3", user3.getId())
